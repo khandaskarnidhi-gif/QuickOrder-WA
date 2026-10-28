@@ -408,7 +408,7 @@
 
           <!-- Quick Action Buttons -->
           <div class="flex items-center gap-3 self-start md:self-center">
-            <button type="button" onclick="toggleActiveView()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200">
+            <button id="customer-hero-edit-btn" type="button" onclick="toggleActiveView()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200">
               <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               <span>Edit Store</span>
             </button>
@@ -447,7 +447,7 @@
         <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-2xl mb-4">🍽️</div>
         <h3 class="text-lg font-bold text-slate-800">No items available</h3>
         <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">The store catalog is currently empty or no items matched your search filter.</p>
-        <button onclick="toggleActiveView()" class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition-colors">
+        <button id="customer-empty-edit-btn" onclick="toggleActiveView()" class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition-colors">
           Add Items in Merchant View
         </button>
       </div>
@@ -843,6 +843,7 @@
     // Application state
     let state = {
       activeView: 'merchant', // 'merchant' | 'customer'
+      isCustomerMode: false, // Set to true when accessed via ?mode=customer
       store: { ...DEFAULT_STORE },
       products: [],
       cart: {}, // { [productId]: quantity }
@@ -902,12 +903,28 @@
         }
       }
 
-      // Determine initial view:
-      const hasLaunchedBefore = localStorage.getItem('quickorder_has_launched');
-      if (hasLaunchedBefore === 'true') {
+      // 4. URL Mode Detection (Customer vs Merchant/Admin)
+      const urlParams = new URLSearchParams(window.location.search);
+      const modeParam = (urlParams.get('mode') || '').toLowerCase();
+      const hasStoreParam = urlParams.has('store');
+
+      if (modeParam === 'customer' || (hasStoreParam && modeParam !== 'admin')) {
+        // Customer Mode: Lock strictly to customer view & completely hide all merchant admin controls
+        state.isCustomerMode = true;
         state.activeView = 'customer';
-      } else {
+      } else if (modeParam === 'admin') {
+        // Admin Mode explicitly requested
+        state.isCustomerMode = false;
         state.activeView = 'merchant';
+      } else {
+        // Default / Initial Merchant Setup View
+        state.isCustomerMode = false;
+        const hasLaunchedBefore = localStorage.getItem('quickorder_has_launched');
+        if (hasLaunchedBefore === 'true') {
+          state.activeView = 'customer';
+        } else {
+          state.activeView = 'merchant';
+        }
       }
 
       // Populate Merchant form inputs
@@ -943,9 +960,13 @@
     }
 
     /**
-     * View Switcher Handler
+     * View Switcher Handler - Blocked in Customer Mode
      */
     function toggleActiveView() {
+      if (state.isCustomerMode) {
+        console.warn("Merchant admin view is disabled in customer mode.");
+        return;
+      }
       state.activeView = state.activeView === 'merchant' ? 'customer' : 'merchant';
       renderActiveView();
     }
@@ -953,20 +974,75 @@
     function renderActiveView() {
       const merchantView = document.getElementById('merchant-view');
       const customerView = document.getElementById('customer-view');
+      const toggleBtn = document.getElementById('toggle-view-btn');
       const toggleBtnText = document.getElementById('toggle-btn-text');
+      const navModeBadge = document.getElementById('nav-mode-badge');
       const navModeText = document.getElementById('nav-mode-text');
+      const heroEditBtn = document.getElementById('customer-hero-edit-btn');
+      const emptyEditBtn = document.getElementById('customer-empty-edit-btn');
+
+      if (state.isCustomerMode) {
+        // Customer Mode: Completely lock & hide all merchant setup controls
+        state.activeView = 'customer';
+        if (merchantView) {
+          merchantView.classList.add('hidden');
+          merchantView.style.display = 'none';
+        }
+        if (customerView) {
+          customerView.classList.remove('hidden');
+          customerView.style.display = '';
+        }
+        if (toggleBtn) {
+          toggleBtn.style.display = 'none';
+          toggleBtn.classList.add('hidden');
+        }
+        if (navModeBadge) {
+          navModeBadge.style.display = 'none';
+          navModeBadge.classList.add('hidden');
+        }
+        if (heroEditBtn) {
+          heroEditBtn.style.display = 'none';
+          heroEditBtn.classList.add('hidden');
+        }
+        if (emptyEditBtn) {
+          emptyEditBtn.style.display = 'none';
+          emptyEditBtn.classList.add('hidden');
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      // Normal Merchant/Admin Mode allowed
+      if (toggleBtn) {
+        toggleBtn.style.display = '';
+        toggleBtn.classList.remove('hidden');
+      }
+      if (navModeBadge) {
+        navModeBadge.style.display = '';
+        navModeBadge.classList.remove('hidden');
+      }
+      if (heroEditBtn) {
+        heroEditBtn.style.display = '';
+        heroEditBtn.classList.remove('hidden');
+      }
+      if (emptyEditBtn) {
+        emptyEditBtn.style.display = '';
+        emptyEditBtn.classList.remove('hidden');
+      }
+      if (merchantView) merchantView.style.display = '';
+      if (customerView) customerView.style.display = '';
 
       if (state.activeView === 'merchant') {
         merchantView.classList.remove('hidden');
         customerView.classList.add('hidden');
-        toggleBtnText.textContent = "View Customer Store";
-        navModeText.textContent = "Merchant Setup";
+        if (toggleBtnText) toggleBtnText.textContent = "View Customer Store";
+        if (navModeText) navModeText.textContent = "Merchant Setup";
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         merchantView.classList.add('hidden');
         customerView.classList.remove('hidden');
-        toggleBtnText.textContent = "Edit Store";
-        navModeText.textContent = "Customer View";
+        if (toggleBtnText) toggleBtnText.textContent = "Edit Store";
+        if (navModeText) navModeText.textContent = "Customer View";
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
@@ -1119,6 +1195,7 @@
      */
     function handleCreateProduct(event) {
       event.preventDefault();
+      if (state.isCustomerMode) return;
       const nameInput = document.getElementById('prod-name-input');
       const priceInput = document.getElementById('prod-price-input');
       const stockInput = document.getElementById('prod-stock-input');
@@ -1180,6 +1257,7 @@
      * Merchant: Delete Product
      */
     function deleteProduct(productId) {
+      if (state.isCustomerMode) return;
       const prod = state.products.find(p => p.id === productId);
       if (!prod) return;
 
@@ -1287,6 +1365,7 @@
      * Merchant Quick Stock Adjuster (+1 / -1)
      */
     function adjustProductStock(productId, delta) {
+      if (state.isCustomerMode) return;
       const prod = state.products.find(p => p.id === productId);
       if (!prod) return;
 
@@ -1315,6 +1394,7 @@
      * Merchant 1-Tap Toggle In-Stock / Sold Out
      */
     function toggleStockAvailability(productId) {
+      if (state.isCustomerMode) return;
       const prod = state.products.find(p => p.id === productId);
       if (!prod) return;
 
@@ -1342,6 +1422,7 @@
      * Edit Price & Stock In Place (Modal Controls)
      */
     function openEditProductModal(productId) {
+      if (state.isCustomerMode) return;
       const prod = state.products.find(p => p.id === productId);
       if (!prod) return;
 
@@ -1609,7 +1690,7 @@
                 ` : `
                   <button type="button" onclick="incrementCart('${prod.id}')" class="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98]">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                    <span>+ Add to Cart</span>
+                    <span>Add to Cart</span>
                   </button>
                 `}
               </div>
@@ -2183,7 +2264,7 @@
         return;
       }
 
-      // Auto-deduction: Decrement ordered quantities from product stock in localStorage
+      // Auto-deduction: Decrement ordered quantities from product stock in localStorage immediately
       let stockChanged = false;
       for (const [productId, qty] of Object.entries(state.cart)) {
         const prod = state.products.find(p => p.id === productId);
@@ -2197,6 +2278,7 @@
       if (stockChanged) {
         localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
         renderMerchantProducts();
+        renderCustomerStorefront();
       }
 
       // Merchant Phone
@@ -2226,18 +2308,26 @@
     }
 
     /**
-     * Share Storefront link helper
+     * Share Storefront link helper (Includes ?mode=customer parameter)
      */
     function shareStoreLink() {
-      const url = window.location.href;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
-          showToast("Store link copied to clipboard! Share on WhatsApp.", "success");
+      let shareUrl;
+      try {
+        const parsed = new URL(window.location.href);
+        parsed.searchParams.set('mode', 'customer');
+        shareUrl = parsed.toString();
+      } catch (e) {
+        shareUrl = window.location.origin + window.location.pathname + '?mode=customer';
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          showToast("Customer store link copied to clipboard! Share on WhatsApp. 📋", "success");
         }).catch(() => {
-          showToast("Store URL: " + url, "info");
+          prompt("Copy this Customer Store URL to share on WhatsApp:", shareUrl);
         });
       } else {
-        showToast("Store URL: " + url, "info");
+        prompt("Copy this Customer Store URL to share on WhatsApp:", shareUrl);
       }
     }
 
