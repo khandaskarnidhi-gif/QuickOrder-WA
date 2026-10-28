@@ -1,0 +1,2294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuickOrder WA - WhatsApp Storefront & Ordering Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981', // Emerald
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+            }
+          },
+          boxShadow: {
+            'glow': '0 10px 25px -5px rgba(16, 185, 129, 0.3), 0 8px 10px -6px rgba(16, 185, 129, 0.2)',
+            'floating': '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Smooth transitions and custom scrollbars */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @keyframes pulseScale {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .badge-pulse {
+      animation: pulseScale 2s infinite ease-in-out;
+    }
+    .modal-backdrop {
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-100 selection:text-brand-800">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Top Global Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <!-- App Brand / Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-extrabold text-lg tracking-tight text-slate-900">QuickOrder</span>
+            <span class="text-xs font-bold uppercase tracking-wider bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded-md">WA</span>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Direct WhatsApp Ordering for Micro-Merchants</p>
+        </div>
+      </div>
+
+      <!-- View Switcher & Action Pill -->
+      <div class="flex items-center gap-2">
+        <div id="nav-mode-badge" class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-full border border-slate-200">
+          <span class="w-2 h-2 rounded-full bg-brand-500"></span>
+          <span id="nav-mode-text">Customer View</span>
+        </div>
+
+        <button id="toggle-view-btn" onclick="toggleActiveView()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+          <svg id="toggle-icon-store" class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+          <span id="toggle-btn-text">Edit Store</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 pb-28">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: MERCHANT STORE SETUP & MANAGEMENT -->
+    <!-- ========================================== -->
+    <section id="merchant-view" class="space-y-8 animate-fadeIn">
+      <!-- Merchant Welcome Banner -->
+      <div class="bg-gradient-to-r from-emerald-900 via-brand-800 to-teal-900 rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-xl">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="relative z-10 max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-emerald-200 text-xs font-semibold mb-4 border border-white/10">
+            <span>✨ Merchant Dashboard</span>
+            <span>•</span>
+            <span>Zero Aggregator Commissions</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-2">Set Up Your WhatsApp Storefront</h1>
+          <p class="text-emerald-100/90 text-sm sm:text-base leading-relaxed">
+            Customize your shop details, curate your menu items, and launch a blazing-fast storefront that turns customer carts into formatted WhatsApp orders.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Left Column: Store Profile & Product Creation Form (7 cols) -->
+        <div class="lg:col-span-7 space-y-6">
+          
+          <!-- Card 1: Shop Profile Info -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center font-bold">1</div>
+                <div>
+                  <h2 class="text-base font-bold text-slate-900">Shop Profile Details</h2>
+                  <p class="text-xs text-slate-500">Information displayed to your buyers</p>
+                </div>
+              </div>
+              <button type="button" onclick="loadPresetDemoStore()" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100/80 px-2.5 py-1 rounded-lg transition-colors">
+                Load Demo Shop
+              </button>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <label for="shop-name-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Shop Name <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                  <input type="text" id="shop-name-input" placeholder="e.g. Annapurna Tiffin & Bakes" 
+                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all">
+                </div>
+              </div>
+
+              <div>
+                <label for="shop-desc-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Shop Description / Tagline <span class="text-rose-500">*</span>
+                </label>
+                <textarea id="shop-desc-input" rows="2" placeholder="e.g. Fresh homemade cakes, daily healthy tiffins & evening snacks made with organic ingredients." 
+                  class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all resize-none"></textarea>
+              </div>
+
+              <div>
+                <label for="shop-phone-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  WhatsApp Phone Number <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                  <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-emerald-600 font-bold text-sm">
+                    💬
+                  </div>
+                  <input type="tel" id="shop-phone-input" placeholder="e.g. 919876543210 (with country code, no + or spaces)" 
+                    class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all">
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  Include country code (e.g., <strong>91</strong> for India followed by your 10-digit number).
+                </p>
+              </div>
+
+              <!-- Merchant Delivery Mode Setting Toggle -->
+              <div class="pt-3 border-t border-slate-100">
+                <div class="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200/90">
+                  <div class="flex items-center gap-3">
+                    <span class="text-2xl">🚚</span>
+                    <div>
+                      <p class="text-xs font-extrabold text-slate-900">Offer Home Delivery?</p>
+                      <p class="text-[11px] text-slate-500">Allow customers to choose doorstep delivery</p>
+                    </div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" id="merchant-delivery-toggle" checked onchange="handleMerchantDeliveryToggle(this.checked)" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+                    <span id="merchant-delivery-label" class="ml-2.5 text-xs font-extrabold text-brand-700 min-w-[28px]">Yes</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Product Creation Form -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center font-bold">2</div>
+                <div>
+                  <h2 class="text-base font-bold text-slate-900">Add Menu Item / Product</h2>
+                  <p class="text-xs text-slate-500">Create items your customers can order</p>
+                </div>
+              </div>
+            </div>
+
+            <form id="product-form" onsubmit="handleCreateProduct(event)" class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+                <div class="sm:col-span-2">
+                  <label for="prod-name-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Product Name <span class="text-rose-500">*</span>
+                  </label>
+                  <input type="text" id="prod-name-input" placeholder="e.g. Belgian Truffle Cake (500g)" required 
+                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all">
+                </div>
+
+                <div>
+                  <label for="prod-price-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Price (₹) <span class="text-rose-500">*</span>
+                  </label>
+                  <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center font-bold text-slate-500 text-sm">₹</span>
+                    <input type="number" id="prod-price-input" placeholder="250" min="1" step="1" required 
+                      class="w-full pl-7 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all">
+                  </div>
+                </div>
+
+                <div>
+                  <label for="prod-stock-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Stock <span class="text-rose-500">*</span>
+                  </label>
+                  <input type="number" id="prod-stock-input" placeholder="10" min="0" step="1" required 
+                    class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all">
+                </div>
+              </div>
+
+              <!-- Local Gallery / Device Photo Upload -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Product Photo <span class="text-slate-400 font-normal lowercase">(Upload from device or pick preset)</span>
+                </label>
+                
+                <label for="prod-file-input" class="group flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 bg-slate-50 hover:bg-brand-50/40 cursor-pointer transition-all text-center">
+                  <input type="file" id="prod-file-input" accept="image/*" onchange="handleDevicePhotoUpload(event)" class="sr-only">
+                  <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-700 group-hover:scale-110 flex items-center justify-center mb-1.5 transition-transform shadow-xs">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p class="text-xs font-bold text-slate-800 group-hover:text-brand-800">Choose Photo from Gallery / Device</p>
+                  <p class="text-[11px] text-slate-500 mt-0.5">JPEG, PNG, WEBP (Saved locally in browser)</p>
+                </label>
+              </div>
+
+              <!-- Quick-Select Food Preset Buttons -->
+              <div>
+                <p class="text-xs font-semibold text-slate-600 mb-2">Or choose a quick food photo preset:</p>
+                <div class="grid grid-cols-3 gap-2">
+                  <button type="button" id="preset-btn-bakery" onclick="selectImagePreset('bakery')" class="preset-btn group p-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 text-left transition-all flex items-center gap-2">
+                    <span class="text-xl">🍰</span>
+                    <div class="truncate">
+                      <p class="text-xs font-bold text-slate-800 group-hover:text-brand-800 truncate">Bakery</p>
+                      <p class="text-[10px] text-slate-500 truncate">Cake & Pastry</p>
+                    </div>
+                  </button>
+
+                  <button type="button" id="preset-btn-tiffin" onclick="selectImagePreset('tiffin')" class="preset-btn group p-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 text-left transition-all flex items-center gap-2">
+                    <span class="text-xl">🍛</span>
+                    <div class="truncate">
+                      <p class="text-xs font-bold text-slate-800 group-hover:text-brand-800 truncate">Tiffin</p>
+                      <p class="text-[10px] text-slate-500 truncate">Thali / Meal</p>
+                    </div>
+                  </button>
+
+                  <button type="button" id="preset-btn-snacks" onclick="selectImagePreset('snacks')" class="preset-btn group p-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-brand-50 hover:border-brand-300 text-left transition-all flex items-center gap-2">
+                    <span class="text-xl">🥟</span>
+                    <div class="truncate">
+                      <p class="text-xs font-bold text-slate-800 group-hover:text-brand-800 truncate">Snacks</p>
+                      <p class="text-[10px] text-slate-500 truncate">Samosa / Chaat</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Live Preview of chosen product image -->
+              <div id="image-preview-container" class="hidden items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <img id="image-preview-thumb" src="" alt="Preview" class="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-xs flex-shrink-0">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-brand-500"></span>
+                    <p id="image-preview-title" class="text-xs font-bold text-slate-800 truncate">Photo Attached</p>
+                  </div>
+                  <p id="image-preview-desc" class="text-[11px] text-slate-500 truncate">Ready to add with product</p>
+                </div>
+                <button type="button" onclick="clearSelectedImage()" class="text-xs text-rose-500 hover:text-rose-700 font-semibold px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors">Remove</button>
+              </div>
+
+              <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-md transition-all active:scale-[0.99]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                <span>Add Product to List</span>
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Product Inventory List & Launch Store Button (5 cols) -->
+        <div class="lg:col-span-5 space-y-6">
+          
+          <!-- Launch Store CTA Card -->
+          <div class="bg-gradient-to-br from-brand-500 to-emerald-600 rounded-2xl p-6 text-white shadow-glow space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs uppercase tracking-wider font-extrabold bg-white/20 px-2.5 py-1 rounded-md text-white">Live Store Preview</span>
+              <span id="merchant-prod-count" class="text-xs font-bold bg-brand-900/40 px-2.5 py-1 rounded-full">0 Items Added</span>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold tracking-tight">Ready to Take Orders?</h3>
+              <p class="text-brand-100 text-xs mt-1 leading-relaxed">
+                Save your shop configuration and switch directly to the customer-facing storefront to test or share.
+              </p>
+            </div>
+            <button type="button" onclick="handleLaunchStorefront()" class="w-full py-3.5 px-4 bg-white hover:bg-emerald-50 text-brand-800 font-extrabold text-sm rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
+              <span>🚀 Launch Storefront</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </button>
+          </div>
+
+          <!-- Inventory List -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span>Current Products</span>
+                <span id="inventory-badge" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">0</span>
+              </h3>
+              <button type="button" onclick="resetToSampleProducts()" class="text-[11px] font-semibold text-slate-500 hover:text-brand-600 transition-colors">
+                Reload Default Items
+              </button>
+            </div>
+
+            <!-- Scrollable product list -->
+            <div id="merchant-product-list" class="space-y-3 max-h-[460px] overflow-y-auto custom-scroll pr-1">
+              <!-- Dynamically populated -->
+            </div>
+
+            <div id="merchant-empty-state" class="hidden text-center py-8 px-4">
+              <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-xl mb-3">📦</div>
+              <p class="text-sm font-bold text-slate-700">No products added yet</p>
+              <p class="text-xs text-slate-400 mt-1">Use the form on the left or click "Reload Default Items" to add your catalog.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: CUSTOMER STOREFRONT               -->
+    <!-- ========================================== -->
+    <section id="customer-view" class="hidden space-y-8 animate-fadeIn">
+      
+      <!-- Storefront Hero Header -->
+      <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 relative overflow-hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          
+          <div class="space-y-3 max-w-2xl">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200/60">
+                <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                Accepting Orders
+              </span>
+              <div id="customer-phone-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.178.18-.076.355.101.174.449.741.963 1.2 1.002.894 1.769.967 1.956 1.054.188.087.299.072.41-.058.112-.13.479-.558.608-.75.13-.191.26-.159.435-.095.174.064 1.107.522 1.296.616.189.094.316.14.363.22.046.079.046.462-.098.867z"/>
+                </svg>
+                <span id="customer-phone-display">+91 9876543210</span>
+              </div>
+              <span id="customer-delivery-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                🚚 Delivery & Pickup
+              </span>
+            </div>
+
+            <div>
+              <h1 id="customer-shop-name" class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Annapurna Homemade Delights</h1>
+              <p id="customer-shop-desc" class="text-sm text-slate-600 mt-1.5 leading-relaxed max-w-xl">
+                Freshly baked artisanal cakes, cookies & evening snacks with 100% pure ingredients.
+              </p>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="flex items-center gap-3 self-start md:self-center">
+            <button type="button" onclick="toggleActiveView()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              <span>Edit Store</span>
+            </button>
+            <button type="button" onclick="shareStoreLink()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors border border-brand-200">
+              <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+              <span>Share Store</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Category / Search Filter Bar -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900 tracking-tight">Our Menu & Catalog</h2>
+          <p class="text-xs text-slate-500">Pick your items and order directly via WhatsApp</p>
+        </div>
+        
+        <div class="relative w-full sm:w-72">
+          <input type="text" id="catalog-search" oninput="handleSearchCatalog(this.value)" placeholder="Search items..." 
+            class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all shadow-sm">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Customer Products Grid -->
+      <div id="customer-product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamically rendered product cards -->
+      </div>
+
+      <!-- Empty State for Customer View -->
+      <div id="customer-empty-state" class="hidden text-center py-16 px-4 bg-white rounded-3xl border border-slate-200/80">
+        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-2xl mb-4">🍽️</div>
+        <h3 class="text-lg font-bold text-slate-800">No items available</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">The store catalog is currently empty or no items matched your search filter.</p>
+        <button onclick="toggleActiveView()" class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition-colors">
+          Add Items in Merchant View
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- STICKY FLOATING CART BAR (Customer View)   -->
+  <!-- ========================================== -->
+  <div id="floating-cart-bar" class="fixed bottom-5 left-1/2 -translate-x-1/2 w-full max-w-lg px-4 z-40 transition-all duration-300 transform translate-y-28 opacity-0 pointer-events-none">
+    <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-3.5 sm:p-4 rounded-2xl shadow-floating border border-slate-700/80 flex items-center justify-between gap-4 backdrop-blur-xl">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center relative font-bold">
+          <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          <span id="floating-cart-count" class="absolute -top-1.5 -right-1.5 bg-brand-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md">0</span>
+        </div>
+        <div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xs text-slate-400 font-medium">Subtotal:</span>
+            <span id="floating-cart-subtotal" class="text-base sm:text-lg font-extrabold text-white">₹0</span>
+          </div>
+          <p class="text-[10px] text-brand-300 font-medium">Delivery fee calculated at checkout</p>
+        </div>
+      </div>
+
+      <button type="button" onclick="openCheckoutModal()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md transition-all transform hover:scale-[1.02] active:scale-[0.98]">
+        <span>View Bill & Checkout</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- EDIT PRICE & STOCK MODAL (Merchant)        -->
+  <!-- ========================================== -->
+  <div id="edit-product-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 modal-backdrop opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="edit-product-card" class="bg-white rounded-3xl w-full max-w-sm shadow-2xl border border-slate-200/80 p-6 space-y-5 transform scale-95 transition-all duration-300">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm">
+            ✏️
+          </div>
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900">Edit Price & Stock</h3>
+            <p id="edit-modal-prod-name" class="text-xs text-slate-500 font-semibold truncate max-w-[190px]">Product</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditProductModal()" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors">
+          ✕
+        </button>
+      </div>
+
+      <input type="hidden" id="edit-modal-prod-id">
+
+      <div class="space-y-4">
+        <div>
+          <label for="edit-modal-price" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Price in INR (₹) <span class="text-rose-500">*</span>
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center font-bold text-slate-500 text-sm">₹</span>
+            <input type="number" id="edit-modal-price" min="1" step="1" required 
+              class="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+          </div>
+        </div>
+
+        <div>
+          <label for="edit-modal-stock" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            Current Stock Count <span class="text-rose-500">*</span>
+          </label>
+          <input type="number" id="edit-modal-stock" min="0" step="1" required 
+            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+          <p class="text-[11px] text-slate-400 mt-1">Set to 0 to mark as Sold Out</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeEditProductModal()" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+          Cancel
+        </button>
+        <button type="button" onclick="saveEditedProduct()" class="flex-1 py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-extrabold shadow-sm transition-all">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- CHECKOUT MODAL & WHATSAPP ENGINE           -->
+  <!-- ========================================== -->
+  <div id="checkout-modal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 modal-backdrop opacity-0 pointer-events-none transition-opacity duration-300 overflow-y-auto">
+    
+    <div id="checkout-modal-card" class="bg-white rounded-3xl w-full max-w-xl shadow-2xl border border-slate-200/80 my-8 overflow-hidden transform scale-95 transition-all duration-300 flex flex-col max-h-[92vh]">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 sticky top-0 z-10 backdrop-blur-md">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.178.18-.076.355.101.174.449.741.963 1.2 1.002.894 1.769.967 1.956 1.054.188.087.299.072.41-.058.112-.13.479-.558.608-.75.13-.191.26-.159.435-.095.174.064 1.107.522 1.296.616.189.094.316.14.363.22.046.079.046.462-.098.867z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">Review & WhatsApp Checkout</h3>
+            <p class="text-xs text-slate-500">Order sent directly to merchant chat</p>
+          </div>
+        </div>
+
+        <button type="button" onclick="closeCheckoutModal()" class="w-8 h-8 rounded-full bg-slate-200/70 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-6 space-y-6 overflow-y-auto custom-scroll flex-1">
+        
+        <!-- SECTION 0: Order Fulfillment Selection (Mandatory) -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            Fulfillment Mode <span class="text-rose-500">*</span>
+          </label>
+          <div class="grid grid-cols-2 gap-3" id="fulfillment-selector-group">
+            <label id="fulfillment-delivery-card" class="fulfillment-card flex items-center gap-3 p-3.5 rounded-2xl border-2 border-brand-500 bg-brand-50/50 cursor-pointer transition-all">
+              <input type="radio" name="order-fulfillment" id="fulfillment-delivery-input" value="delivery" onchange="handleFulfillmentChange('delivery')" checked class="sr-only">
+              <span class="text-2xl">🚚</span>
+              <div>
+                <p class="text-xs font-extrabold text-slate-900">Home Delivery</p>
+                <p class="text-[10px] text-slate-500">Doorstep delivery</p>
+              </div>
+            </label>
+
+            <label id="fulfillment-pickup-card" class="fulfillment-card flex items-center gap-3 p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand-300 bg-white cursor-pointer transition-all">
+              <input type="radio" name="order-fulfillment" id="fulfillment-pickup-input" value="pickup" onchange="handleFulfillmentChange('pickup')" class="sr-only">
+              <span class="text-2xl">🏬</span>
+              <div>
+                <p class="text-xs font-extrabold text-slate-900">Store Pickup</p>
+                <p class="text-[10px] text-brand-600 font-bold">Self takeaway (FREE)</p>
+              </div>
+            </label>
+          </div>
+
+          <!-- Banner if merchant disabled home delivery -->
+          <div id="merchant-no-delivery-banner" class="hidden mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium flex items-center gap-2">
+            <span>ℹ️</span>
+            <span>This merchant is currently only taking <strong>Store Pickup</strong> orders.</span>
+          </div>
+        </div>
+
+        <!-- SECTION 1: Itemized Bill -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Itemized Bill</h4>
+            <span id="modal-item-count" class="text-xs font-semibold text-slate-500">0 Items</span>
+          </div>
+
+          <div id="modal-bill-items" class="divide-y divide-slate-100 bg-slate-50/70 rounded-2xl p-3 border border-slate-200/60 space-y-2">
+            <!-- Dynamically populated bill items -->
+          </div>
+        </div>
+
+        <!-- SECTION 2: Distance Selector (Delivery Fee) -->
+        <div id="checkout-distance-section" class="transition-all">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            Delivery Distance <span class="text-rose-500">*</span>
+          </label>
+          <div class="grid grid-cols-3 gap-2.5">
+            <label class="distance-card relative flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-200 hover:border-brand-300 bg-white cursor-pointer transition-all">
+              <input type="radio" name="delivery-distance" value="20" data-label="0-3 km" onchange="handleDistanceChange(20, '0-3 km')" checked class="sr-only">
+              <span class="text-lg mb-0.5">🚶‍♂️</span>
+              <span class="text-xs font-extrabold text-slate-900">0 - 3 km</span>
+              <span class="text-[11px] font-bold text-brand-600 mt-1">₹20 Fee</span>
+            </label>
+
+            <label class="distance-card relative flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-200 hover:border-brand-300 bg-white cursor-pointer transition-all">
+              <input type="radio" name="delivery-distance" value="40" data-label="3-7 km" onchange="handleDistanceChange(40, '3-7 km')" class="sr-only">
+              <span class="text-lg mb-0.5">🛵</span>
+              <span class="text-xs font-extrabold text-slate-900">3 - 7 km</span>
+              <span class="text-[11px] font-bold text-brand-600 mt-1">₹40 Fee</span>
+            </label>
+
+            <label class="distance-card relative flex flex-col items-center text-center p-3 rounded-2xl border-2 border-slate-200 hover:border-brand-300 bg-white cursor-pointer transition-all">
+              <input type="radio" name="delivery-distance" value="60" data-label="7+ km" onchange="handleDistanceChange(60, '7+ km')" class="sr-only">
+              <span class="text-lg mb-0.5">🚗</span>
+              <span class="text-xs font-extrabold text-slate-900">7+ km</span>
+              <span class="text-[11px] font-bold text-brand-600 mt-1">₹60 Fee</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION 3: Customer Information -->
+        <div class="space-y-4">
+          <h4 id="cust-section-title" class="text-xs font-bold uppercase tracking-wider text-slate-500">Customer Details</h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="cust-name" class="block text-xs font-bold text-slate-700 mb-1">
+                Your Name <span class="text-rose-500">*</span>
+              </label>
+              <input type="text" id="cust-name" placeholder="e.g. Rahul Sharma" required 
+                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+            </div>
+
+            <div>
+              <label for="cust-phone" class="block text-xs font-bold text-slate-700 mb-1">
+                Your WhatsApp / Phone <span class="text-rose-500">*</span>
+              </label>
+              <input type="tel" id="cust-phone" placeholder="e.g. 9876543210" required 
+                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+            </div>
+          </div>
+
+          <!-- Delivery Address Fields (Visible only for Home Delivery) -->
+          <div id="checkout-address-section" class="space-y-4 transition-all">
+            <div>
+              <label for="cust-address" class="block text-xs font-bold text-slate-700 mb-1">
+                Complete Delivery Address <span class="text-rose-500">*</span>
+              </label>
+              <textarea id="cust-address" rows="2" placeholder="House/Flat No, Apartment Name, Street, Area" 
+                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all resize-none"></textarea>
+            </div>
+
+            <div>
+              <label for="cust-landmark" class="block text-xs font-bold text-slate-700 mb-1">
+                Nearby Landmark <span class="text-rose-500">*</span>
+              </label>
+              <input type="text" id="cust-landmark" placeholder="e.g. Near HDFC Bank ATM / Opposite Green Park" 
+                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+            </div>
+          </div>
+
+          <!-- Store Pickup Banner (Visible only for Store Pickup) -->
+          <div id="checkout-pickup-banner" class="hidden p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-1">
+            <div class="flex items-center gap-2 font-extrabold text-emerald-800">
+              <span class="text-base">🏬</span>
+              <span>Store Pickup (Self Takeaway) Selected</span>
+            </div>
+            <p class="text-emerald-700 leading-relaxed">
+              You will collect this order directly from the store. Delivery address and charges are not required. Show your WhatsApp receipt when picking up!
+            </p>
+          </div>
+        </div>
+
+        <!-- SECTION 4: Compulsory Payment Method (Radio buttons) -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+            Payment Method <span class="text-rose-500">*</span>
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="payment-card flex items-center gap-3 p-3.5 rounded-2xl border-2 border-brand-500 bg-brand-50/40 cursor-pointer transition-all">
+              <input type="radio" name="payment-method" value="Cash on Delivery (COD)" onchange="handlePaymentMethodChange()" checked class="sr-only">
+              <span class="text-2xl">💵</span>
+              <div>
+                <p class="text-xs font-extrabold text-slate-900">Cash on Delivery</p>
+                <p class="text-[10px] text-slate-500">Pay cash upon arrival</p>
+              </div>
+            </label>
+
+            <label class="payment-card flex items-center gap-3 p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand-300 bg-white cursor-pointer transition-all">
+              <input type="radio" name="payment-method" value="UPI (GPay / PhonePe / Paytm)" onchange="handlePaymentMethodChange()" class="sr-only">
+              <span class="text-2xl">📲</span>
+              <div>
+                <p class="text-xs font-extrabold text-slate-900">UPI Payment</p>
+                <p class="text-[10px] text-slate-500">GPay, PhonePe, Paytm</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- SECTION 5: Optional Fields (Customization & Notes) -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500">Preferences & Instructions <span class="text-slate-400 lowercase font-normal">(optional)</span></h4>
+
+          <div>
+            <label for="cust-customization" class="block text-xs font-medium text-slate-700 mb-1">
+              Item Customization
+            </label>
+            <input type="text" id="cust-customization" placeholder="e.g. 100% Eggless, Medium spicy, Extra chutney" 
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+          </div>
+
+          <div>
+            <label for="cust-notes" class="block text-xs font-medium text-slate-700 mb-1">
+              Order / Delivery Note
+            </label>
+            <input type="text" id="cust-notes" placeholder="e.g. Please ring bell twice / Leave at security if unavailable" 
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+          </div>
+        </div>
+
+        <!-- SECTION 6: Final Price Summary Box -->
+        <div class="bg-slate-100 rounded-2xl p-4 space-y-2 border border-slate-200">
+          <div class="flex justify-between text-xs text-slate-600 font-medium">
+            <span>Items Subtotal:</span>
+            <span id="summary-subtotal" class="font-bold text-slate-800">₹0</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-600 font-medium">
+            <span id="summary-distance-label">Delivery Charges (0-3 km):</span>
+            <span id="summary-delivery-fee" class="font-bold text-brand-600">₹20</span>
+          </div>
+          <div class="border-t border-slate-200/80 pt-2 flex justify-between items-baseline">
+            <span class="text-sm font-extrabold text-slate-900">Grand Total:</span>
+            <span id="summary-grand-total" class="text-xl font-extrabold text-brand-700">₹0</span>
+          </div>
+        </div>
+
+        <!-- Optional Live WhatsApp Receipt Preview Accordion -->
+        <div class="border border-slate-200/90 rounded-2xl overflow-hidden bg-slate-50">
+          <button type="button" onclick="toggleReceiptPreview()" class="w-full px-4 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900 flex items-center justify-between transition-colors">
+            <span class="flex items-center gap-1.5">
+              <span>💬</span>
+              <span>Preview WhatsApp Message Receipt</span>
+            </span>
+            <span id="preview-toggle-icon" class="text-xs transition-transform duration-200">▼</span>
+          </button>
+          <div id="receipt-preview-box" class="hidden p-4 pt-1 border-t border-slate-200/60 bg-emerald-950 text-emerald-100 text-xs font-mono rounded-b-2xl whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto custom-scroll">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer (Action Button) -->
+      <div class="p-4 sm:p-6 bg-white border-t border-slate-100 sticky bottom-0 z-10 shadow-lg">
+        <button type="button" onclick="submitWhatsAppOrder()" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 via-brand-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm sm:text-base shadow-glow flex items-center justify-center gap-3 transition-all transform active:scale-[0.99]">
+          <svg class="w-6 h-6 fill-current text-white" viewBox="0 0 24 24">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.007c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.178.18-.076.355.101.174.449.741.963 1.2 1.002.894 1.769.967 1.956 1.054.188.087.299.072.41-.058.112-.13.479-.558.608-.75.13-.191.26-.159.435-.095.174.064 1.107.522 1.296.616.189.094.316.14.363.22.046.079.046.462-.098.867z"/>
+          </svg>
+          <span>Order on WhatsApp</span>
+        </button>
+        <p class="text-center text-[11px] text-slate-400 mt-2 font-medium">Opens WhatsApp with your pre-formatted receipt ready to send</p>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Javascript Application Logic -->
+  <script>
+    /**
+     * QuickOrder WA Core State & Logic
+     */
+    
+    // Default Sample Presets
+    const IMAGE_PRESETS = {
+      bakery: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=80',
+      tiffin: 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=500&auto=format&fit=crop&q=80',
+      snacks: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&auto=format&fit=crop&q=80'
+    };
+
+    const DEFAULT_STORE = {
+      shopName: "Annapurna Homemade Bakes & Kitchen",
+      description: "Freshly baked artisanal cakes, homemade thalis & evening tea-time snacks prepared with 100% pure ingredients.",
+      phone: "919876543210",
+      offerDelivery: true
+    };
+
+    const DEFAULT_PRODUCTS = [
+      {
+        id: "prod-1",
+        name: "Belgian Truffle Cake (500g)",
+        price: 499,
+        stock: 6,
+        image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500&auto=format&fit=crop&q=80"
+      },
+      {
+        id: "prod-2",
+        name: "Special Paneer Biryani Thali",
+        price: 220,
+        stock: 2,
+        image: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=500&auto=format&fit=crop&q=80"
+      },
+      {
+        id: "prod-3",
+        name: "Crispy Punjabi Samosa (Plate of 2)",
+        price: 60,
+        stock: 12,
+        image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=500&auto=format&fit=crop&q=80"
+      },
+      {
+        id: "prod-4",
+        name: "Masala Chai & Bun Maska Combo",
+        price: 90,
+        stock: 0,
+        image: "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=500&auto=format&fit=crop&q=80"
+      }
+    ];
+
+    // Application state
+    let state = {
+      activeView: 'merchant', // 'merchant' | 'customer'
+      store: { ...DEFAULT_STORE },
+      products: [],
+      cart: {}, // { [productId]: quantity }
+      selectedFulfillment: 'delivery', // 'delivery' | 'pickup'
+      selectedDeliveryFee: 20,
+      selectedDeliveryDistanceLabel: "0-3 km",
+      selectedProductImage: null, // Base64 dataURL or preset URL
+      searchQuery: ""
+    };
+
+    // Safe LocalStorage helpers
+    const STORAGE_KEY_STORE = 'quickorder_merchant_info';
+    const STORAGE_KEY_PRODUCTS = 'quickorder_products';
+    const STORAGE_KEY_CART = 'quickorder_cart';
+
+    function initAppState() {
+      // 1. Load store configuration
+      const savedStore = localStorage.getItem(STORAGE_KEY_STORE);
+      if (savedStore) {
+        try {
+          state.store = JSON.parse(savedStore);
+        } catch (e) {
+          state.store = { ...DEFAULT_STORE };
+        }
+      } else {
+        state.store = { ...DEFAULT_STORE };
+      }
+
+      if (typeof state.store.offerDelivery === 'undefined') {
+        state.store.offerDelivery = true;
+      }
+
+      // 2. Load products
+      const savedProducts = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+      if (savedProducts) {
+        try {
+          const parsed = JSON.parse(savedProducts);
+          state.products = Array.isArray(parsed) ? parsed.map(p => ({
+            ...p,
+            stock: (typeof p.stock === 'number') ? p.stock : 5
+          })) : [...DEFAULT_PRODUCTS];
+        } catch (e) {
+          state.products = [...DEFAULT_PRODUCTS];
+        }
+      } else {
+        state.products = [...DEFAULT_PRODUCTS];
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+      }
+
+      // 3. Load cart
+      const savedCart = localStorage.getItem(STORAGE_KEY_CART);
+      if (savedCart) {
+        try {
+          state.cart = JSON.parse(savedCart) || {};
+        } catch (e) {
+          state.cart = {};
+        }
+      }
+
+      // Determine initial view:
+      const hasLaunchedBefore = localStorage.getItem('quickorder_has_launched');
+      if (hasLaunchedBefore === 'true') {
+        state.activeView = 'customer';
+      } else {
+        state.activeView = 'merchant';
+      }
+
+      // Populate Merchant form inputs
+      document.getElementById('shop-name-input').value = state.store.shopName || '';
+      document.getElementById('shop-desc-input').value = state.store.description || '';
+      document.getElementById('shop-phone-input').value = state.store.phone || '';
+
+      const deliveryToggle = document.getElementById('merchant-delivery-toggle');
+      if (deliveryToggle) {
+        const isDeliveryOn = state.store.offerDelivery !== false;
+        deliveryToggle.checked = isDeliveryOn;
+        const label = document.getElementById('merchant-delivery-label');
+        if (label) {
+          label.textContent = isDeliveryOn ? 'Yes' : 'No';
+          label.className = isDeliveryOn ? 'ml-2.5 text-xs font-extrabold text-brand-700 min-w-[28px]' : 'ml-2.5 text-xs font-extrabold text-slate-500 min-w-[28px]';
+        }
+      }
+
+      // Initialize UI
+      renderApp();
+      setupPaymentSelector();
+      setupDistanceSelectorStyles();
+    }
+
+    /**
+     * Render the whole application based on state
+     */
+    function renderApp() {
+      renderActiveView();
+      renderMerchantProducts();
+      renderCustomerStorefront();
+      updateCartUI();
+    }
+
+    /**
+     * View Switcher Handler
+     */
+    function toggleActiveView() {
+      state.activeView = state.activeView === 'merchant' ? 'customer' : 'merchant';
+      renderActiveView();
+    }
+
+    function renderActiveView() {
+      const merchantView = document.getElementById('merchant-view');
+      const customerView = document.getElementById('customer-view');
+      const toggleBtnText = document.getElementById('toggle-btn-text');
+      const navModeText = document.getElementById('nav-mode-text');
+
+      if (state.activeView === 'merchant') {
+        merchantView.classList.remove('hidden');
+        customerView.classList.add('hidden');
+        toggleBtnText.textContent = "View Customer Store";
+        navModeText.textContent = "Merchant Setup";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        merchantView.classList.add('hidden');
+        customerView.classList.remove('hidden');
+        toggleBtnText.textContent = "Edit Store";
+        navModeText.textContent = "Customer View";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    /**
+     * Merchant Delivery Mode Toggle Handler
+     */
+    function handleMerchantDeliveryToggle(checked) {
+      state.store.offerDelivery = checked;
+      const label = document.getElementById('merchant-delivery-label');
+      if (label) {
+        label.textContent = checked ? 'Yes' : 'No';
+        label.className = checked ? 'ml-2.5 text-xs font-extrabold text-brand-700 min-w-[28px]' : 'ml-2.5 text-xs font-extrabold text-slate-500 min-w-[28px]';
+      }
+      renderCustomerStorefront();
+    }
+
+    /**
+     * Local Gallery / Device Photo Upload via FileReader & Canvas Compression
+     */
+    function handleDevicePhotoUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        showToast("Please select a valid image file", "error");
+        return;
+      }
+
+      // Large file check (up to 12MB before compression)
+      if (file.size > 12 * 1024 * 1024) {
+        showToast("Image file is too large. Choose a photo under 12MB", "error");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const rawDataUrl = e.target.result;
+        // Downscale to max 600px width/height to ensure lightweight localStorage persistence (~40-60KB)
+        compressImage(rawDataUrl, 600, 600, 0.82, function(compressedDataUrl) {
+          state.selectedProductImage = compressedDataUrl;
+          updateProductImagePreview(file.name, "Uploaded from device");
+          updatePresetButtonsState(null); // Deselect preset buttons
+          showToast("Photo loaded from device!", "success");
+        });
+      };
+      reader.onerror = function() {
+        showToast("Failed to read image file", "error");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    /**
+     * Canvas downscaling helper to prevent localStorage quota exhaustion
+     */
+    function compressImage(srcDataUrl, maxWidth, maxHeight, quality, callback) {
+      const img = new Image();
+      img.onload = function() {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          callback(dataUrl);
+        } catch (err) {
+          callback(srcDataUrl); // Fallback to raw if canvas fails
+        }
+      };
+      img.onerror = function() {
+        callback(srcDataUrl);
+      };
+      img.src = srcDataUrl;
+    }
+
+    /**
+     * Preset Image selection
+     */
+    function selectImagePreset(type) {
+      if (IMAGE_PRESETS[type]) {
+        state.selectedProductImage = IMAGE_PRESETS[type];
+        const fileInput = document.getElementById('prod-file-input');
+        if (fileInput) fileInput.value = '';
+        updateProductImagePreview(`Preset: ${type.charAt(0).toUpperCase() + type.slice(1)}`, "Catalog Preset Photo");
+        updatePresetButtonsState(type);
+        showToast(`Preset "${type}" photo selected!`, 'info');
+      }
+    }
+
+    function updatePresetButtonsState(activeType) {
+      ['bakery', 'tiffin', 'snacks'].forEach(t => {
+        const btn = document.getElementById(`preset-btn-${t}`);
+        if (btn) {
+          if (t === activeType) {
+            btn.classList.add('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-500/20');
+            btn.classList.remove('border-slate-200', 'bg-slate-50');
+          } else {
+            btn.classList.remove('border-brand-500', 'bg-brand-50', 'ring-2', 'ring-brand-500/20');
+            btn.classList.add('border-slate-200', 'bg-slate-50');
+          }
+        }
+      });
+    }
+
+    function updateProductImagePreview(title, desc) {
+      const container = document.getElementById('image-preview-container');
+      const thumb = document.getElementById('image-preview-thumb');
+      const titleEl = document.getElementById('image-preview-title');
+      const descEl = document.getElementById('image-preview-desc');
+
+      if (state.selectedProductImage) {
+        thumb.src = state.selectedProductImage;
+        if (titleEl) titleEl.textContent = title || "Photo Attached";
+        if (descEl) descEl.textContent = desc || "Ready to save with product";
+        container.classList.remove('hidden');
+        container.classList.add('flex');
+      } else {
+        container.classList.add('hidden');
+        container.classList.remove('flex');
+      }
+    }
+
+    function clearSelectedImage() {
+      state.selectedProductImage = null;
+      const fileInput = document.getElementById('prod-file-input');
+      if (fileInput) fileInput.value = '';
+      updateProductImagePreview();
+      updatePresetButtonsState(null);
+    }
+
+    /**
+     * Merchant: Create Product
+     */
+    function handleCreateProduct(event) {
+      event.preventDefault();
+      const nameInput = document.getElementById('prod-name-input');
+      const priceInput = document.getElementById('prod-price-input');
+      const stockInput = document.getElementById('prod-stock-input');
+
+      const name = nameInput.value.trim();
+      const price = parseFloat(priceInput.value);
+      const stock = parseInt(stockInput.value, 10);
+      let image = state.selectedProductImage;
+
+      if (!name) {
+        showToast("Please enter a product name", "error");
+        nameInput.focus();
+        return;
+      }
+      if (isNaN(price) || price <= 0) {
+        showToast("Please enter a valid price in ₹", "error");
+        priceInput.focus();
+        return;
+      }
+      if (isNaN(stock) || stock < 0) {
+        showToast("Please enter a valid initial stock quantity (min 0)", "error");
+        stockInput.focus();
+        return;
+      }
+
+      // If no image uploaded or selected, fallback to Bakery preset
+      if (!image) {
+        image = IMAGE_PRESETS.bakery;
+      }
+
+      const newProduct = {
+        id: "prod-" + Date.now(),
+        name: name,
+        price: Math.round(price),
+        stock: stock,
+        image: image
+      };
+
+      state.products.unshift(newProduct);
+      try {
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+      } catch (err) {
+        console.warn("Storage quota exceeded", err);
+        showToast("Product added, but browser local storage is nearly full!", "error");
+      }
+
+      // Reset form
+      nameInput.value = '';
+      priceInput.value = '';
+      stockInput.value = '';
+      clearSelectedImage();
+
+      renderMerchantProducts();
+      renderCustomerStorefront();
+      showToast(`Added "${name}" with ${stock} units in stock!`, "success");
+    }
+
+    /**
+     * Merchant: Delete Product
+     */
+    function deleteProduct(productId) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      if (confirm(`Are you sure you want to remove "${prod.name}" from your catalog?`)) {
+        state.products = state.products.filter(p => p.id !== productId);
+        // Also remove from cart if present
+        if (state.cart[productId]) {
+          delete state.cart[productId];
+          localStorage.setItem(STORAGE_KEY_CART, JSON.stringify(state.cart));
+        }
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+        renderMerchantProducts();
+        renderCustomerStorefront();
+        updateCartUI();
+        showToast(`Removed "${prod.name}"`, "info");
+      }
+    }
+
+    /**
+     * Merchant: Render product list with live stock controls
+     */
+    function renderMerchantProducts() {
+      const container = document.getElementById('merchant-product-list');
+      const emptyState = document.getElementById('merchant-empty-state');
+      const countBadge = document.getElementById('merchant-prod-count');
+      const inventoryBadge = document.getElementById('inventory-badge');
+
+      countBadge.textContent = `${state.products.length} Items`;
+      inventoryBadge.textContent = state.products.length;
+
+      if (state.products.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      container.innerHTML = state.products.map(prod => {
+        const stock = (typeof prod.stock === 'number') ? prod.stock : 0;
+        const isSoldOut = stock <= 0;
+
+        return `
+          <div class="p-3.5 rounded-2xl border border-slate-200/90 hover:border-slate-300 bg-white shadow-xs transition-all space-y-3 group">
+            <!-- Row 1: Image, Details, Edit & Delete -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <img src="${escapeHtml(prod.image)}" alt="${escapeHtml(prod.name)}" 
+                  onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120&auto=format&fit=crop&q=80';" 
+                  class="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-slate-100 shadow-xs">
+                <div class="min-w-0">
+                  <h4 class="text-xs font-bold text-slate-800 truncate">${escapeHtml(prod.name)}</h4>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-xs font-black text-brand-600">₹${prod.price}</span>
+                    <span class="text-[11px] ${isSoldOut ? 'text-rose-600 font-extrabold' : 'text-slate-500'}">
+                      • Stock: <strong class="${isSoldOut ? 'text-rose-600' : 'text-slate-800'}">${stock}</strong>
+                    </span>
+                    ${isSoldOut ? '<span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 text-[10px] font-extrabold">Sold Out</span>' : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Top Action Icons: Edit & Delete -->
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="openEditProductModal('${prod.id}')" title="Edit Price & Stock" 
+                  class="p-1.5 text-slate-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                </button>
+                <button type="button" onclick="deleteProduct('${prod.id}')" title="Delete product" 
+                  class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Row 2: Walk-in Quick Stock Adjusters & 1-Tap Toggle -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+              <!-- Walk-in Stepper -->
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-semibold text-slate-500">Walk-in:</span>
+                <div class="flex items-center bg-slate-100 border border-slate-200 rounded-lg p-0.5">
+                  <button type="button" onclick="adjustProductStock('${prod.id}', -1)" title="Decrease stock (-1)" 
+                    class="w-6 h-6 rounded flex items-center justify-center font-black text-slate-600 hover:bg-white hover:text-slate-900 transition-colors">
+                    -1
+                  </button>
+                  <span class="px-2 font-black text-xs min-w-[24px] text-center text-slate-800">${stock}</span>
+                  <button type="button" onclick="adjustProductStock('${prod.id}', 1)" title="Increase stock (+1)" 
+                    class="w-6 h-6 rounded flex items-center justify-center font-black text-brand-700 hover:bg-brand-600 hover:text-white transition-colors">
+                    +1
+                  </button>
+                </div>
+              </div>
+
+              <!-- 1-Tap Toggle In-Stock / Sold Out switch -->
+              <button type="button" onclick="toggleStockAvailability('${prod.id}')" title="1-Tap Toggle Stock Availability"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold border transition-colors ${!isSoldOut ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200' : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'}">
+                ${!isSoldOut ? '🟢 In-Stock' : '🔴 Mark In-Stock'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Merchant Quick Stock Adjuster (+1 / -1)
+     */
+    function adjustProductStock(productId, delta) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      const currentStock = (typeof prod.stock === 'number') ? prod.stock : 0;
+      const newStock = Math.max(0, currentStock + delta);
+      prod.stock = newStock;
+
+      // If cart has more than new stock, clamp cart
+      if (state.cart[productId] && state.cart[productId] > newStock) {
+        if (newStock === 0) {
+          delete state.cart[productId];
+        } else {
+          state.cart[productId] = newStock;
+        }
+        saveCart();
+        updateCartUI();
+      }
+
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+      renderMerchantProducts();
+      renderCustomerStorefront();
+      showToast(`Updated stock for "${prod.name}": ${newStock}`, "info");
+    }
+
+    /**
+     * Merchant 1-Tap Toggle In-Stock / Sold Out
+     */
+    function toggleStockAvailability(productId) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      const currentStock = (typeof prod.stock === 'number') ? prod.stock : 0;
+      if (currentStock > 0) {
+        prod.lastStock = currentStock;
+        prod.stock = 0;
+        if (state.cart[productId]) {
+          delete state.cart[productId];
+          saveCart();
+          updateCartUI();
+        }
+        showToast(`"${prod.name}" marked as Sold Out!`, "info");
+      } else {
+        prod.stock = (typeof prod.lastStock === 'number' && prod.lastStock > 0) ? prod.lastStock : 10;
+        showToast(`"${prod.name}" marked In Stock (${prod.stock} units)!`, "success");
+      }
+
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+      renderMerchantProducts();
+      renderCustomerStorefront();
+    }
+
+    /**
+     * Edit Price & Stock In Place (Modal Controls)
+     */
+    function openEditProductModal(productId) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      document.getElementById('edit-modal-prod-id').value = prod.id;
+      document.getElementById('edit-modal-prod-name').textContent = prod.name;
+      document.getElementById('edit-modal-price').value = prod.price;
+      document.getElementById('edit-modal-stock').value = (typeof prod.stock === 'number') ? prod.stock : 0;
+
+      const modal = document.getElementById('edit-product-modal');
+      const card = document.getElementById('edit-product-card');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100');
+      card.classList.remove('scale-95');
+      card.classList.add('scale-100');
+    }
+
+    function closeEditProductModal() {
+      const modal = document.getElementById('edit-product-modal');
+      const card = document.getElementById('edit-product-card');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100');
+      card.classList.add('scale-95');
+      card.classList.remove('scale-100');
+    }
+
+    function saveEditedProduct() {
+      const prodId = document.getElementById('edit-modal-prod-id').value;
+      const priceInput = document.getElementById('edit-modal-price');
+      const stockInput = document.getElementById('edit-modal-stock');
+
+      const prod = state.products.find(p => p.id === prodId);
+      if (!prod) return;
+
+      const newPrice = Math.round(parseFloat(priceInput.value));
+      const newStock = parseInt(stockInput.value, 10);
+
+      if (isNaN(newPrice) || newPrice <= 0) {
+        showToast("Please enter a valid price in ₹", "error");
+        priceInput.focus();
+        return;
+      }
+      if (isNaN(newStock) || newStock < 0) {
+        showToast("Please enter a valid stock quantity (min 0)", "error");
+        stockInput.focus();
+        return;
+      }
+
+      prod.price = newPrice;
+      prod.stock = newStock;
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+
+      // If cart has more than new stock, clamp cart
+      if (state.cart[prodId] && state.cart[prodId] > newStock) {
+        if (newStock === 0) {
+          delete state.cart[prodId];
+        } else {
+          state.cart[prodId] = newStock;
+        }
+        saveCart();
+        updateCartUI();
+      }
+
+      renderMerchantProducts();
+      renderCustomerStorefront();
+      closeEditProductModal();
+      showToast(`Updated "${prod.name}" price (₹${newPrice}) & stock (${newStock})!`, "success");
+    }
+
+    /**
+     * Merchant: Launch Storefront Button
+     */
+    function handleLaunchStorefront() {
+      const shopName = document.getElementById('shop-name-input').value.trim();
+      const shopDesc = document.getElementById('shop-desc-input').value.trim();
+      const shopPhone = document.getElementById('shop-phone-input').value.trim();
+      const offerDelivery = document.getElementById('merchant-delivery-toggle').checked;
+
+      if (!shopName) {
+        showToast("Please enter your Shop Name", "error");
+        document.getElementById('shop-name-input').focus();
+        return;
+      }
+      if (!shopDesc) {
+        showToast("Please enter a Shop Description", "error");
+        document.getElementById('shop-desc-input').focus();
+        return;
+      }
+      if (!shopPhone) {
+        showToast("Please enter a valid WhatsApp Phone Number", "error");
+        document.getElementById('shop-phone-input').focus();
+        return;
+      }
+
+      // Clean phone number (strip whitespace, dashes, plus)
+      let cleanPhone = shopPhone.replace(/[^\d]/g, '');
+      if (cleanPhone.length === 10) {
+        cleanPhone = '91' + cleanPhone; // Auto prepend India country code if 10 digits provided
+      }
+      if (cleanPhone.length < 10) {
+        showToast("WhatsApp number seems too short. Include country code (e.g. 919876543210)", "error");
+        return;
+      }
+
+      // Save to state & localStorage
+      state.store = {
+        shopName: shopName,
+        description: shopDesc,
+        phone: cleanPhone,
+        offerDelivery: offerDelivery
+      };
+      localStorage.setItem(STORAGE_KEY_STORE, JSON.stringify(state.store));
+      localStorage.setItem('quickorder_has_launched', 'true');
+
+      // Update customer storefront header
+      renderCustomerStorefront();
+
+      // Switch to customer storefront
+      state.activeView = 'customer';
+      renderActiveView();
+
+      showToast("Store launched successfully! 🎉", "success");
+    }
+
+    /**
+     * Preset shop helper
+     */
+    function loadPresetDemoStore() {
+      document.getElementById('shop-name-input').value = DEFAULT_STORE.shopName;
+      document.getElementById('shop-desc-input').value = DEFAULT_STORE.description;
+      document.getElementById('shop-phone-input').value = DEFAULT_STORE.phone;
+      const toggle = document.getElementById('merchant-delivery-toggle');
+      if (toggle) {
+        toggle.checked = true;
+        document.getElementById('merchant-delivery-label').textContent = 'Yes';
+      }
+      showToast("Loaded demo shop details! Click 'Launch Storefront' to test.", "info");
+    }
+
+    function resetToSampleProducts() {
+      state.products = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+      state.cart = {};
+      saveCart();
+      localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+      renderMerchantProducts();
+      renderCustomerStorefront();
+      updateCartUI();
+      showToast("Reset to default sample products", "success");
+    }
+
+    /**
+     * Customer Storefront Rendering
+     */
+    function renderCustomerStorefront() {
+      // Header details
+      document.getElementById('customer-shop-name').textContent = state.store.shopName || "QuickOrder WA Store";
+      document.getElementById('customer-shop-desc').textContent = state.store.description || "Welcome to our store!";
+      document.getElementById('customer-phone-display').textContent = "+" + (state.store.phone || "919876543210");
+
+      const deliveryBadge = document.getElementById('customer-delivery-badge');
+      if (deliveryBadge) {
+        if (state.store.offerDelivery === false) {
+          deliveryBadge.textContent = "🏬 Store Pickup Only";
+          deliveryBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200";
+        } else {
+          deliveryBadge.textContent = "🚚 Delivery & Store Pickup";
+          deliveryBadge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200";
+        }
+      }
+
+      const grid = document.getElementById('customer-product-grid');
+      const emptyState = document.getElementById('customer-empty-state');
+
+      // Apply search filter if any
+      const filtered = state.products.filter(p => {
+        if (!state.searchQuery) return true;
+        return p.name.toLowerCase().includes(state.searchQuery.toLowerCase());
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      grid.innerHTML = filtered.map(prod => {
+        const stock = (typeof prod.stock === 'number') ? prod.stock : 0;
+        const isOutOfStock = stock <= 0;
+        const isLowStock = stock >= 1 && stock <= 3;
+        const qty = state.cart[prod.id] || 0;
+        const isInCart = qty > 0;
+
+        // Stock Badge markup based on inventory rules
+        let stockBadgeHtml = '';
+        if (isOutOfStock) {
+          stockBadgeHtml = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-900/85 text-white backdrop-blur-md shadow-sm border border-slate-700">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+              Out of Stock
+            </span>
+          `;
+        } else if (isLowStock) {
+          stockBadgeHtml = `
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-600 text-white shadow-sm border border-rose-400 animate-pulse">
+              <span>⚡</span>
+              Hurry, only ${stock} left!
+            </span>
+          `;
+        } else {
+          stockBadgeHtml = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-600/90 text-white backdrop-blur-md shadow-sm border border-emerald-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-200"></span>
+              In Stock (${stock} left)
+            </span>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group ${isOutOfStock ? 'opacity-90' : ''}">
+            <!-- Product Image -->
+            <div class="h-48 w-full bg-slate-100 overflow-hidden relative">
+              <img src="${escapeHtml(prod.image)}" alt="${escapeHtml(prod.name)}" 
+                onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80';" 
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isOutOfStock ? 'grayscale-[65%]' : ''}">
+              
+              <!-- Top Left: Stock Status Badge -->
+              <div class="absolute top-3 left-3">
+                ${stockBadgeHtml}
+              </div>
+
+              <!-- Top Right: Price Badge -->
+              <div class="absolute top-3 right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-xl text-xs font-black text-slate-900 shadow-sm border border-slate-200/60">
+                ₹${prod.price}
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div class="p-5 flex-1 flex flex-col justify-between">
+              <div>
+                <h3 class="font-extrabold text-slate-900 text-base leading-snug tracking-tight mb-1">${escapeHtml(prod.name)}</h3>
+                <p class="text-xs text-slate-400 font-medium">Freshly prepared on order</p>
+              </div>
+
+              <!-- Cart Controller Button or Out of Stock Actions -->
+              <div class="mt-4 pt-3 border-t border-slate-100">
+                ${isOutOfStock ? `
+                  <div class="space-y-2">
+                    <button type="button" disabled class="w-full py-2.5 px-4 rounded-xl bg-slate-100 text-slate-400 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-not-allowed border border-slate-200">
+                      <span>Out of Stock</span>
+                    </button>
+                    <button type="button" onclick="notifyRestockOnWhatsApp('${prod.id}')" class="w-full py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-xs active:scale-[0.98]">
+                      <span>🔔 Notify Me on WhatsApp</span>
+                    </button>
+                  </div>
+                ` : isInCart ? `
+                  <div class="flex items-center justify-between bg-brand-50 border border-brand-200 rounded-xl p-1">
+                    <button type="button" onclick="decrementCart('${prod.id}')" class="w-8 h-8 rounded-lg bg-white text-brand-700 hover:bg-brand-600 hover:text-white font-black text-sm flex items-center justify-center transition-colors shadow-sm">
+                      -
+                    </button>
+                    <span class="font-extrabold text-sm text-brand-900 px-3">${qty}</span>
+                    <button type="button" onclick="incrementCart('${prod.id}')" ${qty >= stock ? 'disabled title="Maximum available stock reached"' : ''} class="w-8 h-8 rounded-lg ${qty >= stock ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-brand-600 text-white hover:bg-brand-700'} font-black text-sm flex items-center justify-center transition-colors shadow-sm">
+                      +
+                    </button>
+                  </div>
+                ` : `
+                  <button type="button" onclick="incrementCart('${prod.id}')" class="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    <span>+ Add to Cart</span>
+                  </button>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Search filter
+     */
+    function handleSearchCatalog(query) {
+      state.searchQuery = query.trim();
+      renderCustomerStorefront();
+    }
+
+    /**
+     * Out of Stock: Notify Merchant on WhatsApp
+     */
+    function notifyRestockOnWhatsApp(productId) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      const shopName = state.store.shopName || "QuickOrder WA Store";
+      let merchantPhone = (state.store.phone || "919876543210").replace(/[^\d]/g, '');
+      if (merchantPhone.length === 10) {
+        merchantPhone = '91' + merchantPhone;
+      }
+
+      const message = `Hi ${shopName}, I wanted to order '${prod.name}' but saw it is out of stock. Please notify me when it is restocked!`;
+      const encodedMsg = encodeURIComponent(message);
+      const waUrl = `https://wa.me/${merchantPhone}?text=${encodedMsg}`;
+
+      window.open(waUrl, '_blank');
+      showToast(`Opening WhatsApp to notify ${shopName}...`, "info");
+    }
+
+    /**
+     * Cart Operations
+     */
+    function incrementCart(productId) {
+      const prod = state.products.find(x => x.id === productId);
+      if (!prod) return;
+
+      const stock = (typeof prod.stock === 'number') ? prod.stock : 0;
+      const currentQty = state.cart[productId] || 0;
+
+      if (stock <= 0) {
+        showToast(`"${prod.name}" is currently out of stock!`, "error");
+        return;
+      }
+
+      if (currentQty >= stock) {
+        showToast(`Only ${stock} available in stock!`, "error");
+        return;
+      }
+
+      state.cart[productId] = currentQty + 1;
+      saveCart();
+      renderCustomerStorefront();
+      updateCartUI();
+      showToast(`Added "${prod.name}" to cart`, "info");
+    }
+
+    function decrementCart(productId) {
+      if (!state.cart[productId]) return;
+      state.cart[productId] -= 1;
+      if (state.cart[productId] <= 0) {
+        delete state.cart[productId];
+      }
+      saveCart();
+      renderCustomerStorefront();
+      updateCartUI();
+    }
+
+    function removeProductFromCart(productId) {
+      delete state.cart[productId];
+      saveCart();
+      renderCustomerStorefront();
+      updateCartUI();
+      renderModalBillItems();
+    }
+
+    function saveCart() {
+      localStorage.setItem(STORAGE_KEY_CART, JSON.stringify(state.cart));
+    }
+
+    /**
+     * Calculate Subtotal, Delivery Fee and Grand Total
+     */
+    function calculateTotals() {
+      let totalItems = 0;
+      let subtotal = 0;
+
+      for (const [productId, qty] of Object.entries(state.cart)) {
+        const prod = state.products.find(p => p.id === productId);
+        if (prod && qty > 0) {
+          totalItems += qty;
+          subtotal += (prod.price * qty);
+        }
+      }
+
+      const isPickup = (state.selectedFulfillment === 'pickup');
+      const deliveryFee = (totalItems > 0 && !isPickup) ? state.selectedDeliveryFee : 0;
+      const grandTotal = subtotal + deliveryFee;
+
+      return { totalItems, subtotal, deliveryFee, grandTotal, isPickup };
+    }
+
+    /**
+     * Update Floating Cart and UI counts
+     */
+    function updateCartUI() {
+      const { totalItems, subtotal } = calculateTotals();
+      const floatingBar = document.getElementById('floating-cart-bar');
+      const countBadge = document.getElementById('floating-cart-count');
+      const subtotalDisplay = document.getElementById('floating-cart-subtotal');
+
+      if (totalItems > 0 && state.activeView === 'customer') {
+        countBadge.textContent = totalItems;
+        subtotalDisplay.textContent = `₹${subtotal}`;
+        floatingBar.classList.remove('translate-y-28', 'opacity-0', 'pointer-events-none');
+        floatingBar.classList.add('translate-y-0', 'opacity-100');
+      } else {
+        floatingBar.classList.add('translate-y-28', 'opacity-0', 'pointer-events-none');
+        floatingBar.classList.remove('translate-y-0', 'opacity-100');
+      }
+    }
+
+    /**
+     * Checkout Modal Controls
+     */
+    function openCheckoutModal() {
+      const { totalItems } = calculateTotals();
+      if (totalItems === 0) {
+        showToast("Your cart is empty! Add items first.", "error");
+        return;
+      }
+
+      const deliveryCard = document.getElementById('fulfillment-delivery-card');
+      const noDeliveryBanner = document.getElementById('merchant-no-delivery-banner');
+
+      // Check merchant delivery mode
+      if (state.store.offerDelivery === false) {
+        state.selectedFulfillment = 'pickup';
+        if (deliveryCard) {
+          deliveryCard.classList.add('opacity-40', 'pointer-events-none');
+        }
+        if (noDeliveryBanner) {
+          noDeliveryBanner.classList.remove('hidden');
+        }
+      } else {
+        if (deliveryCard) {
+          deliveryCard.classList.remove('opacity-40', 'pointer-events-none');
+        }
+        if (noDeliveryBanner) {
+          noDeliveryBanner.classList.add('hidden');
+        }
+      }
+
+      handleFulfillmentChange(state.selectedFulfillment);
+      renderModalBillItems();
+      updateCheckoutSummary();
+
+      const modal = document.getElementById('checkout-modal');
+      const card = document.getElementById('checkout-modal-card');
+
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100');
+      card.classList.remove('scale-95');
+      card.classList.add('scale-100');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeCheckoutModal() {
+      const modal = document.getElementById('checkout-modal');
+      const card = document.getElementById('checkout-modal-card');
+
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100');
+      card.classList.add('scale-95');
+      card.classList.remove('scale-100');
+      document.body.style.overflow = '';
+    }
+
+    // Close on backdrop click
+    document.getElementById('checkout-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'checkout-modal') {
+        closeCheckoutModal();
+      }
+    });
+
+    // Close on ESC
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeCheckoutModal();
+    });
+
+    /**
+     * Order Fulfillment Change Handler (Delivery vs Store Pickup)
+     */
+    function handleFulfillmentChange(type) {
+      if (state.store.offerDelivery === false && type === 'delivery') {
+        type = 'pickup';
+        showToast("This merchant only offers Store Pickup", "info");
+      }
+
+      state.selectedFulfillment = type;
+      const isDelivery = (type === 'delivery');
+
+      const deliveryCard = document.getElementById('fulfillment-delivery-card');
+      const pickupCard = document.getElementById('fulfillment-pickup-card');
+      const deliveryInput = document.getElementById('fulfillment-delivery-input');
+      const pickupInput = document.getElementById('fulfillment-pickup-input');
+
+      if (isDelivery) {
+        if (deliveryCard) {
+          deliveryCard.classList.add('border-brand-500', 'bg-brand-50/50', 'ring-2', 'ring-brand-500/20');
+          deliveryCard.classList.remove('border-slate-200', 'bg-white');
+        }
+        if (pickupCard) {
+          pickupCard.classList.remove('border-brand-500', 'bg-brand-50/50', 'ring-2', 'ring-brand-500/20');
+          pickupCard.classList.add('border-slate-200', 'bg-white');
+        }
+        if (deliveryInput) deliveryInput.checked = true;
+
+        const distSection = document.getElementById('checkout-distance-section');
+        const addrSection = document.getElementById('checkout-address-section');
+        const pickupBanner = document.getElementById('checkout-pickup-banner');
+        if (distSection) distSection.classList.remove('hidden');
+        if (addrSection) addrSection.classList.remove('hidden');
+        if (pickupBanner) pickupBanner.classList.add('hidden');
+      } else {
+        if (pickupCard) {
+          pickupCard.classList.add('border-brand-500', 'bg-brand-50/50', 'ring-2', 'ring-brand-500/20');
+          pickupCard.classList.remove('border-slate-200', 'bg-white');
+        }
+        if (deliveryCard) {
+          deliveryCard.classList.remove('border-brand-500', 'bg-brand-50/50', 'ring-2', 'ring-brand-500/20');
+          deliveryCard.classList.add('border-slate-200', 'bg-white');
+        }
+        if (pickupInput) pickupInput.checked = true;
+
+        const distSection = document.getElementById('checkout-distance-section');
+        const addrSection = document.getElementById('checkout-address-section');
+        const pickupBanner = document.getElementById('checkout-pickup-banner');
+        if (distSection) distSection.classList.add('hidden');
+        if (addrSection) addrSection.classList.add('hidden');
+        if (pickupBanner) pickupBanner.classList.remove('hidden');
+      }
+
+      updateCheckoutSummary();
+      updateReceiptPreviewIfOpen();
+    }
+
+    /**
+     * Render itemized bill in checkout modal
+     */
+    function renderModalBillItems() {
+      const container = document.getElementById('modal-bill-items');
+      const countDisplay = document.getElementById('modal-item-count');
+      const { totalItems } = calculateTotals();
+
+      countDisplay.textContent = `${totalItems} ${totalItems === 1 ? 'Item' : 'Items'}`;
+
+      const itemRows = [];
+
+      for (const [productId, qty] of Object.entries(state.cart)) {
+        const prod = state.products.find(p => p.id === productId);
+        if (prod && qty > 0) {
+          const itemSubtotal = prod.price * qty;
+          itemRows.push(`
+            <div class="flex items-center justify-between py-2.5 text-xs">
+              <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                <img src="${escapeHtml(prod.image)}" alt="${escapeHtml(prod.name)}" 
+                  onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=80&auto=format&fit=crop&q=80';" 
+                  class="w-10 h-10 rounded-xl object-cover flex-shrink-0 border border-slate-200 shadow-xs">
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-800 truncate">${escapeHtml(prod.name)}</p>
+                  <p class="text-slate-500 text-[11px] font-medium">₹${prod.price} each</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <!-- Quantity adjusters inside modal -->
+                <div class="flex items-center bg-white border border-slate-200 rounded-lg shadow-xs overflow-hidden">
+                  <button type="button" onclick="decrementCartInModal('${prod.id}')" title="Decrease" class="w-6 h-6 flex items-center justify-center text-slate-600 hover:bg-slate-100 font-bold transition-colors">
+                    -
+                  </button>
+                  <span class="text-xs font-extrabold text-slate-800 px-2 min-w-[20px] text-center">${qty}</span>
+                  <button type="button" onclick="incrementCartInModal('${prod.id}')" ${qty >= prod.stock ? 'disabled' : ''} title="${qty >= prod.stock ? 'Maximum stock reached' : 'Increase'}" class="w-6 h-6 flex items-center justify-center ${qty >= prod.stock ? 'text-slate-300 cursor-not-allowed bg-slate-50' : 'text-brand-600 hover:bg-brand-50'} font-bold transition-colors">
+                    +
+                  </button>
+                </div>
+
+                <span class="font-extrabold text-slate-900 min-w-[50px] text-right">₹${itemSubtotal}</span>
+
+                <button type="button" onclick="removeProductFromCart('${prod.id}')" title="Remove item" class="text-slate-400 hover:text-rose-500 transition-colors p-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+            </div>
+          `);
+        }
+      }
+
+      if (itemRows.length === 0) {
+        closeCheckoutModal();
+        return;
+      }
+
+      container.innerHTML = itemRows.join('');
+      updateCheckoutSummary();
+      updateReceiptPreviewIfOpen();
+    }
+
+    function incrementCartInModal(productId) {
+      const prod = state.products.find(p => p.id === productId);
+      if (!prod) return;
+
+      const stock = (typeof prod.stock === 'number') ? prod.stock : 0;
+      const currentQty = state.cart[productId] || 0;
+
+      if (currentQty >= stock) {
+        showToast(`Only ${stock} available in stock!`, "error");
+        return;
+      }
+
+      state.cart[productId] = currentQty + 1;
+      saveCart();
+      renderCustomerStorefront();
+      updateCartUI();
+      renderModalBillItems();
+    }
+
+    function decrementCartInModal(productId) {
+      if (!state.cart[productId]) return;
+      state.cart[productId] -= 1;
+      if (state.cart[productId] <= 0) {
+        delete state.cart[productId];
+      }
+      saveCart();
+      renderCustomerStorefront();
+      updateCartUI();
+      renderModalBillItems();
+    }
+
+    /**
+     * Distance Selection Handler
+     */
+    function handleDistanceChange(fee, label) {
+      state.selectedDeliveryFee = fee;
+      state.selectedDeliveryDistanceLabel = label;
+      setupDistanceSelectorStyles();
+      updateCheckoutSummary();
+      updateReceiptPreviewIfOpen();
+    }
+
+    function setupDistanceSelectorStyles() {
+      const cards = document.querySelectorAll('.distance-card');
+      cards.forEach(card => {
+        const input = card.querySelector('input');
+        if (input.checked) {
+          card.classList.add('border-brand-500', 'bg-brand-50/50', 'ring-2', 'ring-brand-500/20');
+          card.classList.remove('border-slate-200', 'bg-white');
+        } else {
+          card.classList.remove('border-brand-500', 'bg-brand-50/50', 'ring-2', 'ring-brand-500/20');
+          card.classList.add('border-slate-200', 'bg-white');
+        }
+      });
+    }
+
+    /**
+     * Payment radio change handler
+     */
+    function handlePaymentMethodChange() {
+      const cards = document.querySelectorAll('.payment-card');
+      cards.forEach(card => {
+        const input = card.querySelector('input');
+        if (input.checked) {
+          card.classList.add('border-brand-500', 'bg-brand-50/40', 'ring-2', 'ring-brand-500/20');
+          card.classList.remove('border-slate-200', 'bg-white');
+        } else {
+          card.classList.remove('border-brand-500', 'bg-brand-50/40', 'ring-2', 'ring-brand-500/20');
+          card.classList.add('border-slate-200', 'bg-white');
+        }
+      });
+      updateReceiptPreviewIfOpen();
+    }
+
+    function setupPaymentSelector() {
+      handlePaymentMethodChange();
+    }
+
+    /**
+     * Update Grand Total in Modal
+     */
+    function updateCheckoutSummary() {
+      const { subtotal, deliveryFee, grandTotal, isPickup } = calculateTotals();
+      document.getElementById('summary-subtotal').textContent = `₹${subtotal}`;
+      
+      const distanceLabel = document.getElementById('summary-distance-label');
+      const feeDisplay = document.getElementById('summary-delivery-fee');
+
+      if (isPickup) {
+        distanceLabel.textContent = 'Delivery Charges:';
+        feeDisplay.innerHTML = '<span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-extrabold uppercase">Free (Pickup)</span>';
+      } else {
+        distanceLabel.textContent = `Delivery Charges (${state.selectedDeliveryDistanceLabel}):`;
+        feeDisplay.textContent = `₹${deliveryFee}`;
+      }
+
+      document.getElementById('summary-grand-total').textContent = `₹${grandTotal}`;
+    }
+
+    /**
+     * Format the complete WhatsApp order receipt text
+     */
+    function generateReceiptText() {
+      const custName = document.getElementById('cust-name').value.trim() || '[Customer Name]';
+      const custPhone = document.getElementById('cust-phone').value.trim() || '[Customer Phone]';
+      const custAddress = document.getElementById('cust-address').value.trim() || '[Delivery Address]';
+      const custLandmark = document.getElementById('cust-landmark').value.trim() || '[Landmark]';
+      
+      const paymentInput = document.querySelector('input[name="payment-method"]:checked');
+      const paymentMethod = paymentInput ? paymentInput.value : 'Cash on Delivery (COD)';
+
+      const customization = document.getElementById('cust-customization').value.trim();
+      const notes = document.getElementById('cust-notes').value.trim();
+
+      const { totalItems, subtotal, deliveryFee, grandTotal, isPickup } = calculateTotals();
+
+      // Format current Date/Time
+      const now = new Date();
+      const dateTimeStr = now.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }) + ', ' + now.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+
+      // Build Order Items
+      let itemsLines = [];
+      for (const [productId, qty] of Object.entries(state.cart)) {
+        const prod = state.products.find(p => p.id === productId);
+        if (prod && qty > 0) {
+          itemsLines.push(`• ${qty}x ${prod.name} (₹${prod.price} ea) = ₹${prod.price * qty}`);
+        }
+      }
+
+      if (itemsLines.length === 0) {
+        itemsLines.push('• (No items selected)');
+      }
+
+      let message = `🛍️ *NEW ORDER - QuickOrder WA*\n`;
+      message += `🏪 *Store:* ${state.store.shopName}\n`;
+      message += `📅 *Date:* ${dateTimeStr}\n`;
+      message += `--------------------------------\n\n`;
+
+      message += `🛒 *ORDERED ITEMS:*\n`;
+      message += itemsLines.join('\n') + `\n\n`;
+
+      message += `💰 *BILL SUMMARY:*\n`;
+      message += `• Items Subtotal: ₹${subtotal}\n`;
+      if (isPickup) {
+        message += `• Delivery Fee: ₹0 (FREE)\n`;
+      } else {
+        message += `• Delivery Fee (${state.selectedDeliveryDistanceLabel}): ₹${deliveryFee}\n`;
+      }
+      message += `⭐ *Grand Total: ₹${grandTotal}*\n`;
+      message += `💳 *Payment Mode:* ${paymentMethod}\n\n`;
+
+      message += `📦 *ORDER & CUSTOMER DETAILS:*\n`;
+      if (isPickup) {
+        message += `• Order Type: Self Pickup (Customer will collect from store)\n`;
+        message += `• Customer Name: ${custName}\n`;
+        message += `• Customer Phone: ${custPhone}\n`;
+      } else {
+        message += `• Order Type: Home Delivery\n`;
+        message += `• Customer Name: ${custName}\n`;
+        message += `• Customer Phone: ${custPhone}\n`;
+        message += `• Delivery Address: ${custAddress}\n`;
+        message += `• Nearby Landmark: ${custLandmark}\n`;
+      }
+
+      if (customization) {
+        message += `\n🎨 *Customization:* ${customization}\n`;
+      }
+      if (notes) {
+        message += `📝 *Order Note:* ${notes}\n`;
+      }
+
+      message += `\n--------------------------------\n`;
+      message += `⚡ *Sent via QuickOrder WA*`;
+
+      return message;
+    }
+
+    /**
+     * WhatsApp Receipt Live Preview Accordion
+     */
+    function toggleReceiptPreview() {
+      const box = document.getElementById('receipt-preview-box');
+      const icon = document.getElementById('preview-toggle-icon');
+      if (box.classList.contains('hidden')) {
+        box.textContent = generateReceiptText();
+        box.classList.remove('hidden');
+        icon.textContent = '▲';
+      } else {
+        box.classList.add('hidden');
+        icon.textContent = '▼';
+      }
+    }
+
+    function updateReceiptPreviewIfOpen() {
+      const box = document.getElementById('receipt-preview-box');
+      if (box && !box.classList.contains('hidden')) {
+        box.textContent = generateReceiptText();
+      }
+    }
+
+    // Live update preview when typing in inputs
+    ['cust-name', 'cust-phone', 'cust-address', 'cust-landmark', 'cust-customization', 'cust-notes'].forEach(id => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateReceiptPreviewIfOpen);
+      });
+    });
+
+    /**
+     * WhatsApp Order Engine: Format Receipt & Launch wa.me
+     */
+    function submitWhatsAppOrder() {
+      const custName = document.getElementById('cust-name').value.trim();
+      const custPhone = document.getElementById('cust-phone').value.trim();
+      const custAddress = document.getElementById('cust-address').value.trim();
+      const custLandmark = document.getElementById('cust-landmark').value.trim();
+      const isDelivery = (state.selectedFulfillment === 'delivery');
+
+      // Form Validations
+      if (!custName) {
+        showToast("Please enter your name", "error");
+        document.getElementById('cust-name').focus();
+        return;
+      }
+      if (!custPhone || custPhone.replace(/[^\d]/g, '').length < 10) {
+        showToast("Please enter a valid 10-digit phone number", "error");
+        document.getElementById('cust-phone').focus();
+        return;
+      }
+
+      if (isDelivery) {
+        if (!custAddress) {
+          showToast("Please enter your complete delivery address", "error");
+          document.getElementById('cust-address').focus();
+          return;
+        }
+        if (!custLandmark) {
+          showToast("Please enter a nearby landmark", "error");
+          document.getElementById('cust-landmark').focus();
+          return;
+        }
+      }
+
+      const { totalItems } = calculateTotals();
+      if (totalItems === 0) {
+        showToast("Your cart is empty", "error");
+        return;
+      }
+
+      // Auto-deduction: Decrement ordered quantities from product stock in localStorage
+      let stockChanged = false;
+      for (const [productId, qty] of Object.entries(state.cart)) {
+        const prod = state.products.find(p => p.id === productId);
+        if (prod && qty > 0) {
+          const currentStock = (typeof prod.stock === 'number') ? prod.stock : 0;
+          prod.stock = Math.max(0, currentStock - qty);
+          stockChanged = true;
+        }
+      }
+
+      if (stockChanged) {
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(state.products));
+        renderMerchantProducts();
+      }
+
+      // Merchant Phone
+      let merchantPhone = (state.store.phone || "919876543210").replace(/[^\d]/g, '');
+      if (merchantPhone.length === 10) {
+        merchantPhone = '91' + merchantPhone;
+      }
+
+      const message = generateReceiptText();
+
+      // WhatsApp URL
+      const encodedMsg = encodeURIComponent(message);
+      const waUrl = `https://wa.me/${merchantPhone}?text=${encodedMsg}`;
+
+      // Open WhatsApp in new tab
+      window.open(waUrl, '_blank');
+
+      // Success feedback
+      showToast("Order dispatched! Stock auto-updated & opening WhatsApp...", "success");
+
+      // Clear cart after order placement
+      state.cart = {};
+      saveCart();
+      renderCustomerStorefront();
+      updateCartUI();
+      closeCheckoutModal();
+    }
+
+    /**
+     * Share Storefront link helper
+     */
+    function shareStoreLink() {
+      const url = window.location.href;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          showToast("Store link copied to clipboard! Share on WhatsApp.", "success");
+        }).catch(() => {
+          showToast("Store URL: " + url, "info");
+        });
+      } else {
+        showToast("Store URL: " + url, "info");
+      }
+    }
+
+    /**
+     * Toast System
+     */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold transition-all transform duration-300 translate-y-2 opacity-0';
+
+      if (type === 'success') {
+        toast.className += ' bg-emerald-600 text-white';
+        toast.innerHTML = `<span>✅</span><span>${escapeHtml(message)}</span>`;
+      } else if (type === 'error') {
+        toast.className += ' bg-rose-600 text-white';
+        toast.innerHTML = `<span>⚠️</span><span>${escapeHtml(message)}</span>`;
+      } else {
+        toast.className += ' bg-slate-900 text-white';
+        toast.innerHTML = `<span>ℹ️</span><span>${escapeHtml(message)}</span>`;
+      }
+
+      container.appendChild(toast);
+
+      // Trigger animation
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      // Auto dismiss
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    /**
+     * Utility: Escape HTML for security
+     */
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Initialize application on page load
+    window.addEventListener('DOMContentLoaded', initAppState);
+  </script>
+</body>
+</html>
