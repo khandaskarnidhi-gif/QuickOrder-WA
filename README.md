@@ -69,6 +69,24 @@ Dynamic UPI QR Code overlay (PhonePe/GPay) directly on checkout.
 
 Multi-language support (Hindi, Marathi, Gujarati) for regional micro-vendors.
 
+## 🧪 Automated Testing & Quality Assurance
+
+The project includes a dedicated unit and regression test suite (`tests.js`) covering key application flows:
+
+- **Cart Math & Tiered Delivery:** Verifies subtotal calculation and dynamic fee tiers (Free Store Pickup vs 0–3km/3–7km/7km+).
+- 
+- **Inventory & Stock Decrement:** Verifies live stock reduction on order dispatch and automated "Notify Me on WhatsApp" trigger at 0 stock.
+- 
+- **Customer Role Isolation:** Validates `?mode=customer` sanitization, ensuring administrative buttons and price tampering controls are removed.
+- 
+- **WhatsApp Universal URI Validation:** Tests URL encoding safety for special characters, line breaks, and emoji receipts.
+
+### Running the Tests:
+```bash
+npm test
+# Or run directly via Node.js:
+node tests.js
+
 📜 Originality Declaration
 This project was conceptualized, designed, and developed for PromptWars 2026 under the Entrepreneurship & Local Business track. All code logic, UI iterations, and architecture workflows have been thoroughly verified, tested, and understood by the team.
 
