@@ -1,0 +1,17 @@
+{
+  "name": "quickorder-wa",
+  "version": "1.0.0",
+  "description": "Automated test suite and build metadata for QuickOrder WA",
+  "main": "tests.js",
+  "scripts": {
+    "test": "node tests.js"
+  },
+  "keywords": [
+    "ecommerce",
+    "whatsapp",
+    "testing",
+    "unit-tests"
+  ],
+  "author": "Nidhi Khandaskar",
+  "license": "MIT"
+}
